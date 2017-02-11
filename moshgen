@@ -1,0 +1,166 @@
+#!/bin/bash
+# Mosh generator (MoshGen) - perfom generating data like logs
+#
+# Style guide: https://google.github.io/styleguide/shell.xml
+# Usage description: see fx_usage()
+
+# FUNCTIONS
+
+function fx_usage()
+{
+
+  echo "Usage: $0 [options]... [date_start] [date_end]
+  
+  Main flags:
+    -s (--step-sec)         - step in seconds to iterate dates
+    -d (--date-format)      - output date format in $(date) format
+    -b (--output-debug)     - debug data destination (optional)
+  
+  Date flags:
+    - set in any format recognized by \$(date) command
+
+  Version 0.01" \
+  | sed 's/^\s\s//' 1>&2
+  
+  exit 1
+}
+
+function sys_error()
+{
+  [[ $@ ]] && echo "error: $@" >&2
+  critical_error_flag="1"
+}
+
+function sys_debug()
+{
+  [[ "${DEBUG}" == 'true' ]] && echo -e "debug: $@" >&2
+}
+
+function sys_is_abort()
+{
+  [[ $critical_error_flag == '1' ]] && echo "exit" && exit 1
+}
+
+function fx_define_vars()
+{
+
+  critical_error_flag=''
+  
+  DEBUG='false'
+  
+  DATE_START=''
+  DATE_END=''
+
+  DATE_FORMAT=''
+  DATE_STEP=''
+
+}
+
+function fx_define_const()
+{
+  readonly DEBUG
+  
+  readonly DATE_START
+  readonly DATE_END
+
+  readonly DATE_FORMAT
+  readonly DATE_STEP
+}
+
+function fx_getopts
+{
+
+  local OPTIND \
+        flag
+
+  # Step 1: Iterate throught arguments for getting main options
+
+  while getopts "bhs:d:" flag
+  do
+    case "${flag}" in
+      
+      b) DEBUG='true' ;;
+
+      s) DATE_STEP="${OPTARG}" ;;
+      d) DATE_FORMAT="${OPTARG}" ;;
+
+      h) fx_usage ;;
+      ?) sys_error ;;
+
+    esac
+  done
+  
+  sys_debug "script parametrs: $*";
+
+  # Step 2: Iterate throught arguments for getting dates
+
+  shift "$((OPTIND-1))"
+
+  [[ ! -z $1 ]] && DATE_START=$1
+  [[ ! -z $2 ]] && DATE_END=$2
+}
+
+function fx_check_required_options()
+{
+
+  [[ -z $DATE_STEP ]] && sys_error 'Option -s is required'
+  [[ -z $DATE_FORMAT ]] && sys_error 'Option -d is required'
+  [[ -z $DATE_START ]] && sys_error '$1 as date_start is required'
+  [[ -z $DATE_END ]] && sys_error '$2 as date_end is required'
+
+}
+
+function fx_check_dates_format()
+{
+
+  date -d "$DATE_START" > /dev/null 2>&1
+  [[ $(echo $?) != 0 ]] && sys_error 'Start date format is not recognized'
+    
+  date -d "$DATE_END" > /dev/null 2>&1
+  [[ $(echo $?) != 0 ]] && sys_error 'End date format is not recognized'
+
+}
+
+function main()
+{
+
+  local i \
+        iter_start \
+        iter_curr \
+        iter_end
+
+  # Prepare constants and variables
+
+  fx_define_vars
+  fx_getopts "$@"
+  fx_define_const
+
+  fx_check_required_options
+  sys_is_abort
+
+  fx_check_dates_format
+  sys_is_abort
+
+  # Define iteratable dates variables
+  
+  iter_curr=$(date -d "$DATE_START" +%s)
+  iter_end=$(date -d "$DATE_END" +%s)
+
+  # Iterate over dates
+  
+  time_0=$(date +%s%N | cut -b1-13)
+  
+  i=0
+  while [[ $iter_curr -le $iter_end ]]; do
+    ((i++))
+    date_curr=$(date -d "@$iter_curr" "$DATE_FORMAT")
+    ((iter_curr=$iter_curr+$DATE_STEP))
+  done
+
+  time_1=$(date +%s%N | cut -b1-13)
+  let time_r=$time_1-$time_0
+  sys_debug "Execute time at ${i} items: ${time_r} milliseconds"
+
+}
+
+main "$@"
