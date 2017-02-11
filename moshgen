@@ -1,10 +1,7 @@
 #!/bin/bash
 # Mosh generator (MoshGen) - perfom generating data like logs
-#
-# Style guide: https://google.github.io/styleguide/shell.xml
 # Usage description: see fx_usage()
-
-# FUNCTIONS
+# Style guide: https://google.github.io/styleguide/shell.xml
 
 function fx_usage()
 {
@@ -13,7 +10,8 @@ function fx_usage()
   
   Main flags:
     -s (--step-sec)         - step in seconds to iterate dates
-    -d (--date-format)      - output date format in $(date) format
+    -d (--date-format)      - output date format in \$(date) format
+    -o (--output)           - file name of output file
     -b (--output-debug)     - debug data destination (optional)
   
   Date flags:
@@ -54,6 +52,8 @@ function fx_define_vars()
   DATE_FORMAT=''
   DATE_STEP=''
 
+  OUTPUT_FILE=''
+
 }
 
 function fx_define_const()
@@ -75,7 +75,7 @@ function fx_getopts
 
   # Step 1: Iterate throught arguments for getting main options
 
-  while getopts "bhs:d:" flag
+  while getopts "bhs:d:o:" flag
   do
     case "${flag}" in
       
@@ -83,6 +83,10 @@ function fx_getopts
 
       s) DATE_STEP="${OPTARG}" ;;
       d) DATE_FORMAT="${OPTARG}" ;;
+      o)
+         OUTPUT_FILE="${OPTARG}"
+         truncate --size 0 $OUTPUT_FILE >&2 || sys_error 'Option -o - can`t create file'
+         ;;
 
       h) fx_usage ;;
       ?) sys_error ;;
@@ -105,6 +109,7 @@ function fx_check_required_options()
 
   [[ -z $DATE_STEP ]] && sys_error 'Option -s is required'
   [[ -z $DATE_FORMAT ]] && sys_error 'Option -d is required'
+  [[ -z $DATE_FORMAT ]] && sys_error 'Option -o is required'
   [[ -z $DATE_START ]] && sys_error '$1 as date_start is required'
   [[ -z $DATE_END ]] && sys_error '$2 as date_end is required'
 
@@ -121,15 +126,50 @@ function fx_check_dates_format()
 
 }
 
-function main()
+function fx_compare()
 {
 
   local i \
+        time_st \
+        time_en \
         iter_start \
         iter_curr \
-        iter_end
+        iter_end \
+        record
 
-  # Prepare constants and variables
+  # Define iteratable dates variables
+  
+  iter_curr=$(date -d "$DATE_START" +%s)
+  iter_end=$(date -d "$DATE_END" +%s)
+
+  # Iterate throught dates
+
+  i=0
+  while [[ $iter_curr -le $iter_end ]]; do
+    
+    date_curr=$(date -d "@$iter_curr" "$DATE_FORMAT")
+    record="mosh_Data ${date_curr} mosh_Data [data] as_mosh_data"
+    
+    if [[ ! -n $OUTPUT_FILE ]]; then
+      echo $record
+    else
+      echo $record >> $OUTPUT_FILE
+    fi
+    
+    ((i++))
+    ((iter_curr=$iter_curr+$DATE_STEP))
+    sys_debug "${i} - ${date_curr}"
+    
+  done
+}
+
+# function compare_alt()
+# {
+
+# }
+
+function main()
+{
 
   fx_define_vars
   fx_getopts "$@"
@@ -141,25 +181,7 @@ function main()
   fx_check_dates_format
   sys_is_abort
 
-  # Define iteratable dates variables
-  
-  iter_curr=$(date -d "$DATE_START" +%s)
-  iter_end=$(date -d "$DATE_END" +%s)
-
-  # Iterate over dates
-  
-  time_0=$(date +%s%N | cut -b1-13)
-  
-  i=0
-  while [[ $iter_curr -le $iter_end ]]; do
-    ((i++))
-    date_curr=$(date -d "@$iter_curr" "$DATE_FORMAT")
-    ((iter_curr=$iter_curr+$DATE_STEP))
-  done
-
-  time_1=$(date +%s%N | cut -b1-13)
-  let time_r=$time_1-$time_0
-  sys_debug "Execute time at ${i} items: ${time_r} milliseconds"
+  fx_compare
 
 }
 
