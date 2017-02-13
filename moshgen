@@ -11,10 +11,8 @@ function fx_usage()
   Main flags:
     -s (--step-sec)         - step in seconds to iterate dates
     -d (--date-format)      - output date format in \$(date) format
-    -o (--output)           - file name of output file
-    -e (--each-per-day)     - write each file per, add prefix to -o
-
-    -b (--output-debug)     - debug data destination (optional)
+    -o (--output)           - file name of output file (optional)
+    -b (--output-debug)     - show debug info (optional)
   
   Date flags:
     - set in any format recognized by \$(date) command
@@ -51,10 +49,9 @@ function fx_define_vars()
   DATE_END=''
 
   DATE_FORMAT=''
-  DATE_STEP=''
+  DATE_STEP=0
 
   OUTPUT_FNAME=''
-  OUTPUT_EACH='false'
 
 }
 
@@ -68,7 +65,6 @@ function fx_define_const()
   readonly DATE_FORMAT
   readonly DATE_STEP
 
-  readonly OUTPUT_EACH
 }
 
 function fx_getopts
@@ -79,20 +75,20 @@ function fx_getopts
 
   # Step 1: Iterate throught arguments for getting main options
 
-  while getopts "bhs:d:o:e" flag
+  while getopts "bhs:d:o:" flag
   do
     case "${flag}" in
       
       b) DEBUG='true' ;;
 
-      s) DATE_STEP="${OPTARG}" ;;
+      s) DATE_STEP=${OPTARG} ;;
       d) DATE_FORMAT="${OPTARG}" ;;
       o)
          OUTPUT_FNAME="${OPTARG}"
          truncate --size 0 $OUTPUT_FNAME >&2 || sys_error 'Option -o - can`t write test file'
          ;;
         
-      e) OUTPUT_EACH='true' ;;
+      # e) OUTPUT_EACH='true' ;;
 
       h) fx_usage ;;
       ?) sys_error ;;
@@ -133,110 +129,70 @@ function fx_check_dates_format()
 
 }
 
-function fx_compare_timestamps()
+function fx_compare_fileoutput()
 {
 
-  local i \
-        time_st \
-        time_en \
-        iter_start \
-        iter_curr \
+  local iter_curr \
         iter_end \
-        record
+        loop_cnt \
+        output_file \
+        items_total \
+        i
 
-  # Define iteratable dates variables
-  
-  iter_curr=$(date -d "$DATE_START" +%s)
-  iter_end=$(date -d "$DATE_END" +%s)
+  # Set dates in unix timestamp format for iterate
 
-  # Iterate throught dates
+  iter_curr=$(date -d "$(date -d "$DATE_START" +%Y-%m-%d)" +%s)
+  iter_end=$(date -d "$(date -d "$DATE_END" +%Y-%m-%d)" +%s)
+
+  # Set first time output file
+
+  output_file=${OUTPUT_FNAME}_$(date -d "@${iter_curr}" +%Y-%m-%d)
+  touch -t "$(date -d "@${iter_curr}" +%Y%m%d)0000" ${output_file}
+
+  # Prepare vars for defining end of day
 
   i=0
+  items_total=0
+  loop_cnt=$(((86400/${DATE_STEP})))  # how many steps in day
+
+  # Iterate
+
   while [[ $iter_curr -le $iter_end ]]; do
-    
-    date_curr=$(date -d "@$iter_curr" "$DATE_FORMAT")
-    record="mosh_Data ${date_curr} mosh_Data [data] as_mosh_data"
-    
-    if [[ ! -n $OUTPUT_FILE ]]; then
-      echo $record
-    else
-      echo $record >> $OUTPUT_FILE
+
+    # If new day is started
+
+    if [[ $i -ge $loop_cnt ]]; then
+      sys_debug "Added ${items_total} items to ${output_file}"  
+      i=0
+      output_file=${OUTPUT_FNAME}_$(date -d "@${iter_curr}" +%Y-%m-%d)
+      touch -t "$(date -d "@${iter_curr}" +%Y%m%d)0000" ${output_file}
     fi
     
+    # Output current record
+
+    echo $(date -d "@$iter_curr" ${DATE_FORMAT}) >> $output_file
+
+    # System counters
+
+    ((i++))
+    ((items_total++))
     ((iter_curr=$iter_curr+$DATE_STEP))
-    sys_debug "$((i++)) - ${date_curr}"
-    
+
   done
-}
-
-function fx_sec2time() {
-  local h \
-        m \
-        s
-  ((h=${1}/3600))
-  ((m=(${1}%3600)/60))
-  ((s=${1}%60))
-  printf "%02d:%02d:%02d\n" $h $m $s
 
 }
 
-function fx_compare_alt()
+function fx_compare_stdout()
 {
+  local iter_curr \
+        iter_end
 
-  local output_file \
-        items \
-        records
+  iter_curr=$(date -d "$(date -d "$DATE_START" +%Y-%m-%d)" +%s)
+  iter_end=$(date -d "$(date -d "$DATE_END" +%Y-%m-%d)" +%s)
 
-  loop_start="$(date -d "${DATE_START}" "+%Y-%m-%d")"
-  loop_end="$(date -d "${DATE_END}" "+%Y-%m-%d")"
-
-  # Iterate throught days
-
-  items=0
-  loop_curr=$loop_start
-
-  while [[ "$loop_curr" != "$loop_end" ]]; do
-
-    # Form next date string
-
-    loop_curr=$(date -d "${loop_curr} + 1 days" "+%Y-%m-%d")
-    
-    # Add prefix to $OUTPUT_FNAME if -e option is here
-
-    if [[ $OUTPUT_EACH == 'true' ]]; then
-      output_file=${OUTPUT_FNAME}_$(date -d "${loop_curr}" +%Y-%m-%d)
-    else
-      output_file=${OUTPUT_FNAME}
-    fi
-
-    sys_debug "Writing output into ${output_file}"
-
-    # Inside each day loop seconds with step
-
-    m=0
-
-    while [[ m -le 86400 ]]; do
-      
-      record="mosh_Data ${loop_curr}_$(fx_sec2time "${m}") mosh_Data"
-      
-      if [[ -n $output_file ]]; then
-        echo $record >> $output_file
-      else
-        echo $record
-      fi
-      
-      (( items++))
-      (( m = m + ${DATE_STEP} ))
-
-    done
-
-    # Change modification time to current_loop
-
-    [[ -n $output_file ]] && touch -t "$(date -d "${loop_curr}" +%Y%m%d)0000" ${output_file}
-
-    sys_debug "Items added: ${items}"
-    sleep 3;
-
+  while [[ $iter_curr -le $iter_end ]]; do
+    echo $(date -d "@$iter_curr" ${DATE_FORMAT})
+    ((iter_curr=$iter_curr+$DATE_STEP))
   done
 
 }
@@ -253,56 +209,9 @@ function main()
 
   fx_check_dates_format
   sys_is_abort
-
-  # fx_compare_timestamps
-  fx_compare_alt
+  
+  [[ -n ${OUTPUT_FNAME} ]] && fx_compare_fileoutput || fx_compare_stdout
 
 }
 
 main "$@"
-
-# awk
-# input:  %Y:_%D-%M__%h%m_%s. 
-# split [1] "%Y"; [2] ":"; [3] "%D"; ...
-# next_date in %Y_%m_%D format
-# copy arr
-# fill arr
-# foreach
-#   string $1$2$3.. count of arr
-# output: 2017:_02-Nov_2132_33
-# 
-# iterate date in any format (date +%Y%D%M)
-# iterate time in seconds
-# array[Y]
-
-# input:  %Y:_%D-%M__%h%m_%s
-# if %Y, then replace %04d, else %02d; etc. %b %B ...
-# $output_format: print (%04d:_%02d-%02d__%02d%02d_%02d)
-#
-# split format
-# replace %b %B to %m
-# $output_consider: [1] y [2] m [3] d [4] H [5] M [6] S
-#
-# input vars: y=2017 ; m=02 ; d=22; H=22; M=21; S=22
-# printf ($output_format) $1 $2 $3 $4 $5 $6
-#
-# %Y - %04d
-# %y %m %H %M %S - %02d
-# %B - %s
-# %b - %s
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
