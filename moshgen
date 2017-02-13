@@ -12,6 +12,8 @@ function fx_usage()
     -s (--step-sec)         - step in seconds to iterate dates
     -d (--date-format)      - output date format in \$(date) format
     -o (--output)           - file name of output file
+    -e (--each-per-day)     - write each file per, add prefix to -o
+
     -b (--output-debug)     - debug data destination (optional)
   
   Date flags:
@@ -51,7 +53,8 @@ function fx_define_vars()
   DATE_FORMAT=''
   DATE_STEP=''
 
-  OUTPUT_FILE=''
+  OUTPUT_FNAME=''
+  OUTPUT_EACH='false'
 
 }
 
@@ -64,6 +67,8 @@ function fx_define_const()
 
   readonly DATE_FORMAT
   readonly DATE_STEP
+
+  readonly OUTPUT_EACH
 }
 
 function fx_getopts
@@ -74,7 +79,7 @@ function fx_getopts
 
   # Step 1: Iterate throught arguments for getting main options
 
-  while getopts "bhs:d:o:" flag
+  while getopts "bhs:d:o:e" flag
   do
     case "${flag}" in
       
@@ -83,9 +88,11 @@ function fx_getopts
       s) DATE_STEP="${OPTARG}" ;;
       d) DATE_FORMAT="${OPTARG}" ;;
       o)
-         OUTPUT_FILE="${OPTARG}"
-         truncate --size 0 $OUTPUT_FILE >&2 || sys_error 'Option -o - can`t create file'
+         OUTPUT_FNAME="${OPTARG}"
+         truncate --size 0 $OUTPUT_FNAME >&2 || sys_error 'Option -o - can`t write test file'
          ;;
+        
+      e) OUTPUT_EACH='true' ;;
 
       h) fx_usage ;;
       ?) sys_error ;;
@@ -116,16 +123,17 @@ function fx_check_required_options()
 
 function fx_check_dates_format()
 {
-
+  sys_debug "Date start: ${DATE_START}"
   date -d "$DATE_START" > /dev/null 2>&1
   [[ $(echo $?) != 0 ]] && sys_error 'Start date format is not recognized'
     
+  sys_debug "Date end: ${DATE_END}"
   date -d "$DATE_END" > /dev/null 2>&1
   [[ $(echo $?) != 0 ]] && sys_error 'End date format is not recognized'
 
 }
 
-function fx_compare()
+function fx_compare_timestamps()
 {
 
   local i \
@@ -169,30 +177,56 @@ function fx_sec2time() {
   ((m=(${1}%3600)/60))
   ((s=${1}%60))
   printf "%02d:%02d:%02d\n" $h $m $s
+
 }
 
 function fx_compare_alt()
 {
 
+  local output_file \
+        items
+
   loop_start="$(date -d "${DATE_START}" "+%Y-%m-%d")"
   loop_end="$(date -d "${DATE_END}" "+%Y-%m-%d")"
 
   # Iterate throught days
-  i=0
-  all=0
+
+  items=0
   loop_curr=$loop_start
+
   while [[ "$loop_curr" != "$loop_end" ]]; do
 
+    # Form next date string
+
     loop_curr=$(date -d "${loop_curr} + 1 days" "+%Y-%m-%d")
-    sys_debug "$((i++))"
     
+    # Add prefix to $OUTPUT_FNAME if -e option is here
+
+    if [[ $OUTPUT_EACH == 'true' ]]; then
+      output_file=${OUTPUT_FNAME}_$(date -d "${loop_curr}" +%Y-%m-%d)
+    else
+      output_file=${OUTPUT_FNAME}
+    fi
+
+    sys_debug "Writing output into ${output_file}"
+
     # Inside each day loop seconds with step
+
     m=0
     while [[ m -le 86400 ]]; do
-      echo "mosh_Data ${loop_curr}_$(fx_sec2time "${m}") mosh_Data" >> $OUTPUT_FILE
+      echo "mosh_Data ${loop_curr}_$(fx_sec2time "${m}") mosh_Data" >> $output_file
+      
+      (( items++))
       (( m = m + ${DATE_STEP} ))
     done
-    sys_debug "$(($all+$m))"
+
+    # Change modification time to current_loop
+
+    touch -t "$(date -d "${loop_curr}" +%Y%m%d)0000" ${output_file}
+
+    sys_debug "Items added: ${items}"
+    sleep 3;
+
   done
 
 }
@@ -210,9 +244,55 @@ function main()
   fx_check_dates_format
   sys_is_abort
 
-  # fx_compare
+  # fx_compare_timestamps
   fx_compare_alt
 
 }
 
 main "$@"
+
+# awk
+# input:  %Y:_%D-%M__%h%m_%s. 
+# split [1] "%Y"; [2] ":"; [3] "%D"; ...
+# next_date in %Y_%m_%D format
+# copy arr
+# fill arr
+# foreach
+#   string $1$2$3.. count of arr
+# output: 2017:_02-Nov_2132_33
+# 
+# iterate date in any format (date +%Y%D%M)
+# iterate time in seconds
+# array[Y]
+
+# input:  %Y:_%D-%M__%h%m_%s
+# if %Y, then replace %04d, else %02d; etc. %b %B ...
+# $output_format: print (%04d:_%02d-%02d__%02d%02d_%02d)
+#
+# split format
+# replace %b %B to %m
+# $output_consider: [1] y [2] m [3] d [4] H [5] M [6] S
+#
+# input vars: y=2017 ; m=02 ; d=22; H=22; M=21; S=22
+# printf ($output_format) $1 $2 $3 $4 $5 $6
+#
+# %Y - %04d
+# %y %m %H %M %S - %02d
+# %B - %s
+# %b - %s
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
