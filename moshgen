@@ -205,7 +205,6 @@ function fx_compare_fileoutput()
   # Set first time output file
 
   output_file=${OUTPUT_FNAME}_$(date -d "@${iter_curr}" +%Y-%m-%d)
-  touch -t "$(date -d "@${iter_curr}" +%Y%m%d)0000" ${output_file}
 
   # Prepare vars for defining end of day
 
@@ -222,8 +221,8 @@ function fx_compare_fileoutput()
     if [[ $i -ge $loop_cnt ]]; then
       sys_debug "Added ${items_total} items to ${output_file}"  
       i=0
+      touch -t "$(date -d "@$((($iter_curr-$DATE_STEP)))" +%Y%m%d)2359" ${output_file}
       output_file=${OUTPUT_FNAME}_$(date -d "@${iter_curr}" +%Y-%m-%d)
-      touch -t "$(date -d "@${iter_curr}" +%Y%m%d)0000" ${output_file}
     fi
     
     # Output current record
@@ -274,6 +273,8 @@ function main()
   mosh_left="$(fx_form_mosh "left")"
   mosh_right="$(fx_form_mosh "right")"
   
+  sys_debug "Mosh example: ${mosh_left} && ${mosh_right}"
+
   if [[ -n ${OUTPUT_FNAME} ]]; then
     fx_compare_fileoutput "$mosh_left" "$mosh_right"
   else
