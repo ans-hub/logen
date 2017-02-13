@@ -184,7 +184,8 @@ function fx_compare_alt()
 {
 
   local output_file \
-        items
+        items \
+        records
 
   loop_start="$(date -d "${DATE_START}" "+%Y-%m-%d")"
   loop_end="$(date -d "${DATE_END}" "+%Y-%m-%d")"
@@ -213,16 +214,25 @@ function fx_compare_alt()
     # Inside each day loop seconds with step
 
     m=0
+
     while [[ m -le 86400 ]]; do
-      echo "mosh_Data ${loop_curr}_$(fx_sec2time "${m}") mosh_Data" >> $output_file
+      
+      record="mosh_Data ${loop_curr}_$(fx_sec2time "${m}") mosh_Data"
+      
+      if [[ -n $output_file ]]; then
+        echo $record >> $output_file
+      else
+        echo $record
+      fi
       
       (( items++))
       (( m = m + ${DATE_STEP} ))
+
     done
 
     # Change modification time to current_loop
 
-    touch -t "$(date -d "${loop_curr}" +%Y%m%d)0000" ${output_file}
+    [[ -n $output_file ]] && touch -t "$(date -d "${loop_curr}" +%Y%m%d)0000" ${output_file}
 
     sys_debug "Items added: ${items}"
     sleep 3;
