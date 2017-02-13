@@ -6,16 +6,21 @@
 function fx_usage()
 {
 
-  echo "Usage: $0 [options]... [date_start] [date_end]
+  echo "Usage: moshgen [options]... [date_start] [date_end]
   
   Main flags:
     -s (--step-sec)         - step in seconds to iterate dates
     -d (--date-format)      - output date format in \$(date) format
+    -m (--mosh-fields)      - mosh fields count, mosh date field, field
+                              length and delimetr in "%d,%d,%d,%s" format
     -o (--output)           - file name of output file (optional)
     -b (--output-debug)     - show debug info (optional)
   
   Date flags:
     - set in any format recognized by \$(date) command
+  
+  Examples:
+    - moshgen -m "12,3,50,\040" (\040 - space)
     " \
   | sed 's/^\s\s//' 1>&2
   
@@ -40,7 +45,6 @@ function sys_is_abort()
 
 function fx_define_vars()
 {
-
   critical_error_flag=''
   
   DEBUG='false'
@@ -53,6 +57,7 @@ function fx_define_vars()
 
   OUTPUT_FNAME=''
 
+  MOSH_FIELDS=''
 }
 
 function fx_define_const()
@@ -65,6 +70,7 @@ function fx_define_const()
   readonly DATE_FORMAT
   readonly DATE_STEP
 
+  readonly MOSH_FIELDS
 }
 
 function fx_getopts
@@ -75,7 +81,7 @@ function fx_getopts
 
   # Step 1: Iterate throught arguments for getting main options
 
-  while getopts "bhs:d:o:" flag
+  while getopts "bhs:d:o:m:" flag
   do
     case "${flag}" in
       
@@ -87,8 +93,9 @@ function fx_getopts
          OUTPUT_FNAME="${OPTARG}"
          truncate --size 0 $OUTPUT_FNAME >&2 || sys_error 'Option -o - can`t write test file'
          ;;
-        
-      # e) OUTPUT_EACH='true' ;;
+      m) MOSH_FIELDS="${OPTARG}"
+         [[ $(grep -o "," <<< "${MOSH_FIELDS}" | wc -l) != 3 ]] && sys_error 'Option -m failed'
+         ;;
 
       h) fx_usage ;;
       ?) sys_error ;;
@@ -112,6 +119,7 @@ function fx_check_required_options()
   [[ -z $DATE_STEP ]] && sys_error 'Option -s is required'
   [[ -z $DATE_FORMAT ]] && sys_error 'Option -d is required'
   [[ -z $DATE_FORMAT ]] && sys_error 'Option -o is required'
+  [[ -z $MOSH_FIELDS ]] && sys_error 'Option -m is required'
   [[ -z $DATE_START ]] && sys_error '$1 as date_start is required'
   [[ -z $DATE_END ]] && sys_error '$2 as date_end is required'
 
@@ -126,6 +134,56 @@ function fx_check_dates_format()
   sys_debug "Date end: ${DATE_END}"
   date -d "$DATE_END" > /dev/null 2>&1
   [[ $(echo $?) != 0 ]] && sys_error 'End date format is not recognized'
+
+}
+
+function fx_form_mosh()
+{
+
+  local i \
+        fields_cnt \
+        fields_len \
+        fields_sep \
+        field_data \
+        side
+  
+  # Split array
+
+  IN="${MOSH_FIELDS}"
+  arrIN=(${IN//,/ })
+  
+  # Access array - echo 
+  
+  fields_cnt="${arrIN[0]}"
+  fields_dat="${arrIN[1]}"
+  fields_len="${arrIN[2]}"
+  fields_sep="${arrIN[3]}"
+
+  # Form temp string
+  
+  field_data=$(echo \
+  $(for ((i=1;i<=${fields_len};i++))
+    do
+      printf '%s' "${RANDOM:0:1}"
+    done
+    )
+  )
+  
+  # Form side string
+
+  if [[ "$1" == 'left' ]]; then
+
+    for ((i=1; i<${fields_dat};i++)); do
+      printf "${i}${field_data}${fields_sep}"
+    done
+  
+  else
+
+    for ((i=$(((${fields_dat}+1))); i<=${fields_cnt};i++)); do
+      printf "${fields_sep}${i}${field_data}"
+    done
+
+  fi
 
 }
 
@@ -170,7 +228,7 @@ function fx_compare_fileoutput()
     
     # Output current record
 
-    echo $(date -d "@$iter_curr" ${DATE_FORMAT}) >> $output_file
+    echo "${1}$(date -d "@$iter_curr" ${DATE_FORMAT})$2" >> $output_file
 
     # System counters
 
@@ -181,7 +239,7 @@ function fx_compare_fileoutput()
   done
 
 }
-
+ 
 function fx_compare_stdout()
 {
   local iter_curr \
@@ -191,7 +249,7 @@ function fx_compare_stdout()
   iter_end=$(date -d "$(date -d "$DATE_END" +%Y-%m-%d)" +%s)
 
   while [[ $iter_curr -le $iter_end ]]; do
-    echo $(date -d "@$iter_curr" ${DATE_FORMAT})
+    echo "${1}$(date -d "@$iter_curr" ${DATE_FORMAT})$2"
     ((iter_curr=$iter_curr+$DATE_STEP))
   done
 
@@ -199,6 +257,9 @@ function fx_compare_stdout()
 
 function main()
 {
+
+  local mosh_left \
+        mosh_right
 
   fx_define_vars
   fx_getopts "$@"
@@ -210,7 +271,14 @@ function main()
   fx_check_dates_format
   sys_is_abort
   
-  [[ -n ${OUTPUT_FNAME} ]] && fx_compare_fileoutput || fx_compare_stdout
+  mosh_left="$(fx_form_mosh "left")"
+  mosh_right="$(fx_form_mosh "right")"
+  
+  if [[ -n ${OUTPUT_FNAME} ]]; then
+    fx_compare_fileoutput "$mosh_left" "$mosh_right"
+  else
+    fx_compare_stdout "$mosh_left" "$mosh_right"
+  fi
 
 }
 
