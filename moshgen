@@ -16,8 +16,7 @@ function fx_usage()
   
   Date flags:
     - set in any format recognized by \$(date) command
-
-  Version 0.01" \
+    " \
   | sed 's/^\s\s//' 1>&2
   
   exit 1
@@ -156,17 +155,47 @@ function fx_compare()
       echo $record >> $OUTPUT_FILE
     fi
     
-    ((i++))
     ((iter_curr=$iter_curr+$DATE_STEP))
-    sys_debug "${i} - ${date_curr}"
+    sys_debug "$((i++)) - ${date_curr}"
     
   done
 }
 
-# function compare_alt()
-# {
+function fx_sec2time() {
+  local h \
+        m \
+        s
+  ((h=${1}/3600))
+  ((m=(${1}%3600)/60))
+  ((s=${1}%60))
+  printf "%02d:%02d:%02d\n" $h $m $s
+}
 
-# }
+function fx_compare_alt()
+{
+
+  loop_start="$(date -d "${DATE_START}" "+%Y-%m-%d")"
+  loop_end="$(date -d "${DATE_END}" "+%Y-%m-%d")"
+
+  # Iterate throught days
+  i=0
+  all=0
+  loop_curr=$loop_start
+  while [[ "$loop_curr" != "$loop_end" ]]; do
+
+    loop_curr=$(date -d "${loop_curr} + 1 days" "+%Y-%m-%d")
+    sys_debug "$((i++))"
+    
+    # Inside each day loop seconds with step
+    m=0
+    while [[ m -le 86400 ]]; do
+      echo "mosh_Data ${loop_curr}_$(fx_sec2time "${m}") mosh_Data" >> $OUTPUT_FILE
+      (( m = m + ${DATE_STEP} ))
+    done
+    sys_debug "$(($all+$m))"
+  done
+
+}
 
 function main()
 {
@@ -181,7 +210,8 @@ function main()
   fx_check_dates_format
   sys_is_abort
 
-  fx_compare
+  # fx_compare
+  fx_compare_alt
 
 }
 
