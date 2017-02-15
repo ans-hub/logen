@@ -1,10 +1,10 @@
 #!/bin/bash
+#
 # Logs generator (LoGen) - perfom generating fake logs for qa test DaSp
-# Usage: see "fx_usage()" || type "./logen -h"
+#
 # Style guide: https://google.github.io/styleguide/shell.xml
 
-function fx_usage()
-{
+function fx_usage() {
 
   echo "Usage: logen [options]... [date_start] [date_end]
   
@@ -28,20 +28,17 @@ function fx_usage()
   exit 1
 }
 
-function sys_error()
-{
-  [[ ${@} ]] && echo "err: ${@}" >&2
+function sys_error() {
+  [[ "$@" ]] && echo "err: $@" >&2
   critical_error_flag="1"
 }
 
-function sys_debug()
-{
-  [[ "${DEBUG}" == 'true' ]] && echo -e "dbg: ${@}" >&2
+function sys_debug() {
+  [[ "${DEBUG}" == 'true' ]] && echo -e "dbg: $@" >&2
 }
 
-function sys_is_abort()
-{
-  if [[ ${critical_error_flag} == '1' ]]; then
+function sys_is_abort() {
+  if [[ "${critical_error_flag}" == '1' ]]; then
     echo "tip: type ./logen -h for usage"
     echo "exit"
     exit 1
@@ -64,8 +61,7 @@ function fx_define_vars()
   GARB_FIELDS=''
 }
 
-function fx_define_const()
-{
+function fx_define_const() {
   readonly DEBUG
   
   readonly DATE_START
@@ -77,27 +73,26 @@ function fx_define_const()
   readonly GARB_FIELDS
 }
 
-function fx_getopts
-{
+function fx_getopts() {
 
   local OPTIND \
         flag
 
   # Get main options
 
-  while getopts "bhs:d:o:g:" flag
+  while getopts 'bhs:d:o:g:' flag
   do
     case "${flag}" in
       
       b) DEBUG='true' ;;
 
-      s) DATE_STEP=${OPTARG} ;;
+      s) DATE_STEP="${OPTARG}" ;;
 
       d) DATE_FORMAT="${OPTARG}" ;;
       
       o)
          OUTPUT_FNAME="${OPTARG}"
-         truncate --size 0 $OUTPUT_FNAME >&2 || sys_error 'Option -o - can`t write test file'
+         truncate --size 0 "${OUTPUT_FNAME}" >&2 || sys_error 'Option -o - can`t write test file'
          ;;
       
       # Checking for format : %d,%d,%d,%s
@@ -112,42 +107,38 @@ function fx_getopts
     esac
   done
   
-  sys_debug "script parametrs: ${*}";
+  sys_debug "script parametrs: $@";
 
   # Get dates
 
   shift "$((OPTIND-1))"
 
-  [[ ! -z ${1} ]] && DATE_START="${1}"
-  [[ ! -z ${2} ]] && DATE_END="${2}"
+  [[ -n "$1" ]] && DATE_START="$1"
+  [[ -n "$2" ]] && DATE_END="$2"
 }
 
-function fx_check_required_options()
-{
+function fx_check_required_options() {
 
-  [[ -z $DATE_STEP ]] && sys_error 'Option -s is required'
-  [[ -z $DATE_FORMAT ]] && sys_error 'Option -d is required'
-  [[ -z $DATE_FORMAT ]] && sys_error 'Option -o is required'
-  [[ -z $GARB_FIELDS ]] && sys_error 'Option -g is required'
-  [[ -z $DATE_START ]] && sys_error '$1 as date_start is required'
-  [[ -z $DATE_END ]] && sys_error '$2 as date_end is required'
+  [[ -z "${DATE_STEP}" ]] && sys_error 'Option -s is required'
+  [[ -z "${DATE_FORMAT}" ]] && sys_error 'Option -d is required'
+  [[ -z "${DATE_FORMAT}" ]] && sys_error 'Option -o is required'
+  [[ -z "${GARB_FIELDS}" ]] && sys_error 'Option -g is required'
+  [[ -z "${DATE_START}" ]] && sys_error '\$1 as date_start is required'
+  [[ -z "${DATE_END}" ]] && sys_error '\$2 as date_end is required'
 
 }
 
-function fx_check_dates_format()
-{
-  sys_debug "Date start: ${DATE_START}"
-  date -d "$DATE_START" > /dev/null 2>&1
-  [[ $(echo ${?}) != 0 ]] && sys_error 'Start date format is not recognized'
+function fx_check_dates_format() {
+
+  date -d "${DATE_START}" > /dev/null 2>&1
+  [[ $(echo "$?") != 0 ]] && sys_error 'Start date format is not recognized'
     
-  sys_debug "Date end: ${DATE_END}"
-  date -d "$DATE_END" > /dev/null 2>&1
-  [[ $(echo ${?}) != 0 ]] && sys_error 'End date format is not recognized'
+  date -d "${DATE_END}" > /dev/null 2>&1
+  [[ $(echo "$?") != 0 ]] && sys_error 'End date format is not recognized'
 
 }
 
-function fx_form_garb()
-{
+function fx_form_garb() {
 
   local i \
         garb_format \
@@ -190,7 +181,7 @@ function fx_form_garb()
 
   else
 
-    for ((i=$((($fields_date+1)));i<=$fields_count;i++)); do
+    for ((i=$(((${fields_date}+1)));i<=${fields_count};i++)); do
       printf "${fields_separator}${i}${garb_tpl}"
     done
 
@@ -198,8 +189,7 @@ function fx_form_garb()
 
 }
 
-function fx_compare_fileoutput()
-{
+function fx_compare_fileoutput() {
 
   local iter_curr \
         iter_end \
@@ -210,8 +200,8 @@ function fx_compare_fileoutput()
 
   # Set dates in unix timestamp format for iterate
 
-  iter_curr=$(date -d "$(date -d "$DATE_START" +%Y-%m-%d)" +%s)
-  iter_end=$(date -d "$(date -d "$DATE_END" +%Y-%m-%d)" +%s)
+  iter_curr=$(date -d "$(date -d "${DATE_START}" +%Y-%m-%d)" +%s)
+  iter_end=$(date -d "$(date -d "${DATE_END}" +%Y-%m-%d)" +%s)
 
   # Set first time output file
 
@@ -225,11 +215,11 @@ function fx_compare_fileoutput()
 
   # Iterate
 
-  while [[ $iter_curr -le $iter_end ]]; do
+  while [[ "${iter_curr}" -le "${iter_end}" ]]; do
 
     # If new day is started
 
-    if [[ $i -ge $loop_cnt ]]; then
+    if [[ "${i}" -ge "${loop_cnt}" ]]; then
       sys_debug "Added ${items_total} items to ${output_file}"  
       i=0
       touch -t "$(date -d "@$((($iter_curr-$DATE_STEP)))" +%Y%m%d)2359" ${output_file}
@@ -238,35 +228,33 @@ function fx_compare_fileoutput()
     
     # Output current record
 
-    echo "${1}$(date -d "@$iter_curr" ${DATE_FORMAT})$2" >> $output_file
+    echo "${1}$(date -d "@${iter_curr}" ${DATE_FORMAT})${2}" >> ${output_file}
 
     # System counters
 
     ((i++))
     ((items_total++))
-    ((iter_curr=$iter_curr+$DATE_STEP))
+    ((iter_curr=${iter_curr}+${DATE_STEP}))
 
   done
 
 }
  
-function fx_compare_stdout()
-{
+function fx_compare_stdout() {
   local iter_curr \
         iter_end
 
-  iter_curr=$(date -d "$(date -d "$DATE_START" +%Y-%m-%d)" +%s)
-  iter_end=$(date -d "$(date -d "$DATE_END" +%Y-%m-%d)" +%s)
+  iter_curr=$(date -d "$(date -d "${DATE_START}" +%Y-%m-%d)" +%s)
+  iter_end=$(date -d "$(date -d "${DATE_END}" +%Y-%m-%d)" +%s)
 
-  while [[ $iter_curr -le $iter_end ]]; do
-    echo "${1}$(date -d "@$iter_curr" ${DATE_FORMAT})$2"
-    ((iter_curr=$iter_curr+$DATE_STEP))
+  while [[ "${iter_curr}" -le "${iter_end}" ]]; do
+    echo "${1}$(date -d "@${iter_curr}" ${DATE_FORMAT})${2}"
+    ((iter_curr=${iter_curr}+${DATE_STEP}))
   done
 
 }
 
-function main()
-{
+function main() {
 
   local garb_left \
         garb_right
@@ -286,7 +274,7 @@ function main()
   
   sys_debug "Garb example: ${garb_left}&&${garb_right}"
 
-  if [[ -n ${OUTPUT_FNAME} ]]; then
+  if [[ -n "${OUTPUT_FNAME}" ]]; then
     fx_compare_fileoutput "$garb_left" "$garb_right"
   else
     fx_compare_stdout "$garb_left" "$garb_right"
