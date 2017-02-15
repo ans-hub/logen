@@ -1,26 +1,27 @@
 #!/bin/bash
-# Mosh generator (MoshGen) - perfom generating data like logs
-# Usage description: see fx_usage()
+# Logs generator (LoGen) - perfom generating fake logs for qa test DaSp
+# Usage: see "fx_usage()" || type "./logen -h"
 # Style guide: https://google.github.io/styleguide/shell.xml
 
 function fx_usage()
 {
 
-  echo "Usage: moshgen [options]... [date_start] [date_end]
+  echo "Usage: logen [options]... [date_start] [date_end]
   
   Main flags:
     -s (--step-sec)         - step in seconds to iterate dates
     -d (--date-format)      - output date format in \$(date) format
-    -m (--mosh-fields)      - mosh fields count, mosh date field, field
-                              length and delimetr in "%d,%d,%d,%s" format
-    -o (--output)           - file name of output file (optional)
+    -g (--garbage-fields)   - garbage fields count, date field, field
+                              length and delimeter in "%d,%d,%d,%s" format
+    -o (--output)           - output filename path & prefix (optional)
     -b (--output-debug)     - show debug info (optional)
+    -h (--help)             - output this info
   
   Date flags:
     - set in any format recognized by \$(date) command
   
   Examples:
-    - moshgen -m "12,3,50,\040" (\040 - space)
+    - logen -m "12,3,50,\040" (\040 - space)
     " \
   | sed 's/^\s\s//' 1>&2
   
@@ -29,24 +30,27 @@ function fx_usage()
 
 function sys_error()
 {
-  [[ $@ ]] && echo "error: $@" >&2
+  [[ ${@} ]] && echo "err: ${@}" >&2
   critical_error_flag="1"
 }
 
 function sys_debug()
 {
-  [[ "${DEBUG}" == 'true' ]] && echo -e "debug: $@" >&2
+  [[ "${DEBUG}" == 'true' ]] && echo -e "dbg: ${@}" >&2
 }
 
 function sys_is_abort()
 {
-  [[ $critical_error_flag == '1' ]] && echo "exit" && exit 1
+  if [[ ${critical_error_flag} == '1' ]]; then
+    echo "tip: type ./logen -h for usage"
+    echo "exit"
+    exit 1
+  fi
 }
 
 function fx_define_vars()
 {
   critical_error_flag=''
-  
   DEBUG='false'
   
   DATE_START=''
@@ -57,7 +61,7 @@ function fx_define_vars()
 
   OUTPUT_FNAME=''
 
-  MOSH_FIELDS=''
+  GARB_FIELDS=''
 }
 
 function fx_define_const()
@@ -70,7 +74,7 @@ function fx_define_const()
   readonly DATE_FORMAT
   readonly DATE_STEP
 
-  readonly MOSH_FIELDS
+  readonly GARB_FIELDS
 }
 
 function fx_getopts
@@ -79,22 +83,27 @@ function fx_getopts
   local OPTIND \
         flag
 
-  # Step 1: Iterate throught arguments for getting main options
+  # Get main options
 
-  while getopts "bhs:d:o:m:" flag
+  while getopts "bhs:d:o:g:" flag
   do
     case "${flag}" in
       
       b) DEBUG='true' ;;
 
       s) DATE_STEP=${OPTARG} ;;
+
       d) DATE_FORMAT="${OPTARG}" ;;
+      
       o)
          OUTPUT_FNAME="${OPTARG}"
          truncate --size 0 $OUTPUT_FNAME >&2 || sys_error 'Option -o - can`t write test file'
          ;;
-      m) MOSH_FIELDS="${OPTARG}"
-         [[ $(grep -o "," <<< "${MOSH_FIELDS}" | wc -l) != 3 ]] && sys_error 'Option -m failed'
+      
+      # Checking for format : %d,%d,%d,%s
+
+      g) GARB_FIELDS="${OPTARG}"
+         [[ $(grep -o "," <<< "${GARB_FIELDS}" | wc -l) != 3 ]] && sys_error 'Option -m failed'
          ;;
 
       h) fx_usage ;;
@@ -103,14 +112,14 @@ function fx_getopts
     esac
   done
   
-  sys_debug "script parametrs: $*";
+  sys_debug "script parametrs: ${*}";
 
-  # Step 2: Iterate throught arguments for getting dates
+  # Get dates
 
   shift "$((OPTIND-1))"
 
-  [[ ! -z $1 ]] && DATE_START=$1
-  [[ ! -z $2 ]] && DATE_END=$2
+  [[ ! -z ${1} ]] && DATE_START="${1}"
+  [[ ! -z ${2} ]] && DATE_END="${2}"
 }
 
 function fx_check_required_options()
@@ -119,7 +128,7 @@ function fx_check_required_options()
   [[ -z $DATE_STEP ]] && sys_error 'Option -s is required'
   [[ -z $DATE_FORMAT ]] && sys_error 'Option -d is required'
   [[ -z $DATE_FORMAT ]] && sys_error 'Option -o is required'
-  [[ -z $MOSH_FIELDS ]] && sys_error 'Option -m is required'
+  [[ -z $GARB_FIELDS ]] && sys_error 'Option -g is required'
   [[ -z $DATE_START ]] && sys_error '$1 as date_start is required'
   [[ -z $DATE_END ]] && sys_error '$2 as date_end is required'
 
@@ -129,58 +138,60 @@ function fx_check_dates_format()
 {
   sys_debug "Date start: ${DATE_START}"
   date -d "$DATE_START" > /dev/null 2>&1
-  [[ $(echo $?) != 0 ]] && sys_error 'Start date format is not recognized'
+  [[ $(echo ${?}) != 0 ]] && sys_error 'Start date format is not recognized'
     
   sys_debug "Date end: ${DATE_END}"
   date -d "$DATE_END" > /dev/null 2>&1
-  [[ $(echo $?) != 0 ]] && sys_error 'End date format is not recognized'
+  [[ $(echo ${?}) != 0 ]] && sys_error 'End date format is not recognized'
 
 }
 
-function fx_form_mosh()
+function fx_form_garb()
 {
 
   local i \
-        fields_cnt \
-        fields_len \
-        fields_sep \
-        field_data \
-        side
+        garb_format \
+        side \
+        fields_count \
+        fields_length \
+        fields_separator \
+        fields_date \
+        garb_tpl
   
   # Split array
 
-  IN="${MOSH_FIELDS}"
-  arrIN=(${IN//,/ })
+  gf="${GARB_FIELDS}"
+  garb_format=(${GARB_FIELDS//,/ })
   
-  # Access array - echo 
-  
-  fields_cnt="${arrIN[0]}"
-  fields_dat="${arrIN[1]}"
-  fields_len="${arrIN[2]}"
-  fields_sep="${arrIN[3]}"
+  fields_count="${garb_format[0]}"
+  fields_date="${garb_format[1]}"
+  fields_length="${garb_format[2]}"
+  fields_separator="${garb_format[3]}"
 
-  # Form temp string
+  # Form temp string with defined length
   
-  field_data=$(echo \
-  $(for ((i=1;i<=${fields_len};i++))
+  garb_tpl=$(echo \
+  $(for ((i=1; i<=${fields_length}; i++))
     do
       printf '%s' "${RANDOM:0:1}"
     done
     )
   )
   
-  # Form side string
+  # Return string before date field
 
-  if [[ "$1" == 'left' ]]; then
+  if [[ "${1}" == "left" ]]; then
 
-    for ((i=1; i<${fields_dat};i++)); do
-      printf "${i}${field_data}${fields_sep}"
+    for ((i=1; i<${fields_date}; i++)); do
+      printf "${i}${garb_tpl}${fields_separator}"
     done
   
+  # Return string after date field
+
   else
 
-    for ((i=$(((${fields_dat}+1))); i<=${fields_cnt};i++)); do
-      printf "${fields_sep}${i}${field_data}"
+    for ((i=$((($fields_date+1)));i<=$fields_count;i++)); do
+      printf "${fields_separator}${i}${garb_tpl}"
     done
 
   fi
@@ -257,8 +268,8 @@ function fx_compare_stdout()
 function main()
 {
 
-  local mosh_left \
-        mosh_right
+  local garb_left \
+        garb_right
 
   fx_define_vars
   fx_getopts "$@"
@@ -270,15 +281,15 @@ function main()
   fx_check_dates_format
   sys_is_abort
   
-  mosh_left="$(fx_form_mosh "left")"
-  mosh_right="$(fx_form_mosh "right")"
+  garb_left="$(fx_form_garb "left")"
+  garb_right="$(fx_form_garb "right")"
   
-  sys_debug "Mosh example: ${mosh_left} && ${mosh_right}"
+  sys_debug "Garb example: ${garb_left}&&${garb_right}"
 
   if [[ -n ${OUTPUT_FNAME} ]]; then
-    fx_compare_fileoutput "$mosh_left" "$mosh_right"
+    fx_compare_fileoutput "$garb_left" "$garb_right"
   else
-    fx_compare_stdout "$mosh_left" "$mosh_right"
+    fx_compare_stdout "$garb_left" "$garb_right"
   fi
 
 }
