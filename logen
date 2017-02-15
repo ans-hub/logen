@@ -19,6 +19,7 @@ function fx_usage() {
   
   Date flags:
     - set in any format recognized by \$(date) command
+    - time of day is not mean - data formed from 00:00:00 to 23:59:59
   
   Examples:
     - logen -m "12,3,50,\040" (\040 - space)
@@ -156,9 +157,14 @@ function fx_form_garb() {
   
   fields_count="${garb_format[0]}"
   fields_date="${garb_format[1]}"
-  fields_length="${garb_format[2]}"
   fields_separator="${garb_format[3]}"
 
+  if [[ "${garb_format[2]}" -eq 0 ]]; then
+    fields_length=$(((RANDOM%10)+1))
+  else
+    fields_length="${garb_format[2]}"
+  fi
+  
   # Form temp string with defined length
   
   garb_tpl=$(echo \
