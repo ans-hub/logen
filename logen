@@ -247,15 +247,27 @@ function fx_compare_fileoutput() {
 }
  
 function fx_compare_stdout() {
-  local iter_curr \
+  
+  local items_total \
+        iter_curr \
         iter_end
+  
+  i=0
+  items_total=0
 
   iter_curr=$(date -d "$(date -d "${DATE_START}" +%Y-%m-%d)" +%s)
   iter_end=$(date -d "$(date -d "${DATE_END}" +%Y-%m-%d)" +%s)
 
   while [[ "${iter_curr}" -le "${iter_end}" ]]; do
+
     echo "${1}$(date -d "@${iter_curr}" ${DATE_FORMAT})${2}"
+
+    ((i++))
+    ((items_total++))
     ((iter_curr=${iter_curr}+${DATE_STEP}))
+
+    [[ "${i}" -eq 1000 ]] && sys_debug "Added ${items_total} items" && i=0  
+
   done
 
 }
