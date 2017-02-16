@@ -121,6 +121,8 @@ function fx_getopts() {
 function fx_check_required_options() {
 
   [[ -z "${DATE_STEP}" ]] && sys_error 'Option -s is required'
+  [[ -n "${DATE_STEP}" && "${DATE_STEP}" -gt 86400 ]] &&
+    \ sys_error 'Option -s - day step more than seconds in day'
   [[ -z "${DATE_FORMAT}" ]] && sys_error 'Option -d is required'
   [[ -z "${DATE_FORMAT}" ]] && sys_error 'Option -o is required'
   [[ -z "${GARB_FIELDS}" ]] && sys_error 'Option -g is required'
@@ -200,49 +202,89 @@ function fx_compare_fileoutput() {
   local iter_curr \
         iter_end \
         loop_cnt \
+        loop_curr \
         output_file \
         items_total \
-        i
+        day_sec_start \
+        day_sec_offset \
+        day_sec_left
+  
+  # For debug aims
+
+  items_total=0
 
   # Set dates in unix timestamp format for iterate
 
-  iter_curr=$(date -d "$(date -d "${DATE_START}" +%Y-%m-%d)" +%s)
-  iter_end=$(date -d "$(date -d "${DATE_END}" +%Y-%m-%d)" +%s)
+  iter_curr=$(date -d "${DATE_START}" +%s)
+  iter_end=$(date -d "${DATE_END}" +%s)
 
-  # Set first time output file
+  # Eval first-time seconds left in first day (in seconds)
+  
+  day_sec_start=$(date -d "$(date -d "${DATE_START}" +%Y-%m-%d)" +%s)
+  day_sec_offset=$(((${iter_curr}-${day_sec_start})))
+  day_sec_left=$(((86399-${day_sec_offset})))
 
+  # Eval first-time loop count and output file
+
+  loop_cnt=$(((${day_sec_left}/${DATE_STEP})))
   output_file=${OUTPUT_FNAME}_$(date -d "@${iter_curr}" +%Y-%m-%d)
 
-  # Prepare vars for defining end of day
-
-  i=0
-  items_total=0
-  loop_cnt=$(((86400/${DATE_STEP})))  # how many steps in day
+  sys_debug "sec_str: ${day_sec_start}"
+  sys_debug "sec_off: ${day_sec_offset}"
+  sys_debug "secleft: ${day_sec_left}"
+  sys_debug "loopcnt: ${loop_cnt}"
+  sys_debug "curfile: ${output_file}"
 
   # Iterate
 
+  loop_curr=0 
+
   while [[ "${iter_curr}" -le "${iter_end}" ]]; do
+  
+    # Define if iter_curr is at the next day
 
-    # If new day is started
+    if [[ "${loop_curr}" -gt "${loop_cnt}" ]]; then
 
-    if [[ "${i}" -ge "${loop_cnt}" ]]; then
-      sys_debug "Added ${items_total} items to ${output_file}"  
-      i=0
-      touch -t "$(date -d "@$((($iter_curr-$DATE_STEP)))" +%Y%m%d)2359" ${output_file}
+      sys_debug "Next_day start"
+      sys_debug "Added ${items_total} items to ${output_file}" 
+      
+      loop_curr=0
+      
+      # Set date to previous file
+
+      date_touch="$(date -d "@$((($iter_curr-$DATE_STEP)))" +%Y%m%d)2359"
+      touch -t "${date_touch}" ${output_file}
+
+      # Evaluate new seconds left in new day
+      
+      day_sec_start=$(date -d "$(date -d "@${iter_curr}" +%Y-%m-%d)" +%s)
+      day_sec_offset=$(((${iter_curr}-${day_sec_start})))
+      day_sec_left=$(((86399-${day_sec_offset})))
+
+      # Evaluate loop-count and file name for new day
+
+      loop_cnt=$(((${day_sec_left}/${DATE_STEP})))
       output_file=${OUTPUT_FNAME}_$(date -d "@${iter_curr}" +%Y-%m-%d)
+      
+      sys_debug "sec_str: ${day_sec_start}"
+      sys_debug "sec_off: ${day_sec_offset}"
+      sys_debug "secleft: ${day_sec_left}"
+      sys_debug "loopcnt: ${loop_cnt}"
+      sys_debug "touchol: ${date_touch}"
+      sys_debug "curfile: ${output_file}"
+
     fi
     
-    # Output current record
+    echo "$(date -d "@${iter_curr}" "${DATE_FORMAT}")" >> $output_file
 
-    echo "${1}$(date -d "@${iter_curr}" ${DATE_FORMAT})${2}" >> ${output_file}
-
-    # System counters
-
-    ((i++))
+    ((loop_curr++))
     ((items_total++))
     ((iter_curr=${iter_curr}+${DATE_STEP}))
-
+    
   done
+
+  date_touch="$(date -d "@$((($iter_curr-$DATE_STEP)))" +%Y%m%d)2359"
+  touch -t "${date_touch}" ${output_file}
 
 }
  
@@ -260,7 +302,7 @@ function fx_compare_stdout() {
 
   while [[ "${iter_curr}" -le "${iter_end}" ]]; do
 
-    echo "${1}$(date -d "@${iter_curr}" ${DATE_FORMAT})${2}"
+    echo "${1}$(date -d "@${iter_curr}" "${DATE_FORMAT}")${2}"
 
     ((i++))
     ((items_total++))
