@@ -26,6 +26,8 @@ function sys_usage() {
   Dates flags:
     - set in any format recognized by \$(date) command
     - date_end is optional, by default is \"now\"
+
+  Version: 0.1
     " \
   | sed 's/^\s\s//' 1>&2
   
@@ -258,12 +260,6 @@ function fx_compare_fileoutput() {
   loop_cnt=$(((${day_sec_left}/${DATE_STEP})))
   output_file=${OUTPUT_FNAME}_$(date -d "@${iter_curr}" +%Y-%m-%d)
 
-  sys_debug "sec_str: ${day_sec_start}"
-  sys_debug "sec_off: ${day_sec_offset}"
-  sys_debug "secleft: ${day_sec_left}"
-  sys_debug "loopcnt: ${loop_cnt}"
-  sys_debug "curfile: ${output_file}"
-
   # Iterate
 
   loop_curr=0 
@@ -294,13 +290,6 @@ function fx_compare_fileoutput() {
 
       loop_cnt=$(((${day_sec_left}/${DATE_STEP})))
       output_file=${OUTPUT_FNAME}_$(date -d "@${iter_curr}" +%Y-%m-%d)
-      
-      sys_debug "sec_str: ${day_sec_start}"
-      sys_debug "sec_off: ${day_sec_offset}"
-      sys_debug "secleft: ${day_sec_left}"
-      sys_debug "loopcnt: ${loop_cnt}"
-      sys_debug "touchol: ${date_touch}"
-      sys_debug "curfile: ${output_file}"
 
     fi
     
