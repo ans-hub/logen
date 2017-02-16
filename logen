@@ -304,7 +304,7 @@ function fx_compare_fileoutput() {
 
     fi
     
-    echo "$(date -d "@${iter_curr}" "${DATE_FORMAT}")" >> $output_file
+    echo "${1}$(date -d "@${iter_curr}" "${DATE_FORMAT}")${2}" >> $output_file
 
     ((loop_curr++))
     ((items_total++))
