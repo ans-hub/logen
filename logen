@@ -27,7 +27,7 @@ function sys_usage() {
     - set in any format recognized by \$(date) command
     - date_end is optional, by default is \"now\"
 
-  Version: 0.2
+  Version: 0.21
     " \
   | sed 's/^\s\s//' 1>&2
   
@@ -304,6 +304,8 @@ function fx_compare_fileoutput() {
     ((iter_curr=${iter_curr}+${DATE_STEP}))
     
   done
+
+  sys_debug "Total added ${items_total} items"
 
   date_touch="$(date -d "@$((($iter_curr-$DATE_STEP)))" +%Y%m%d)2359"
   touch -t "${date_touch}" ${output_file}
