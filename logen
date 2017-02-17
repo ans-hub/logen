@@ -27,7 +27,7 @@ function sys_usage() {
     - set in any format recognized by \$(date) command
     - date_end is optional, by default is \"now\"
 
-  Version: 0.1
+  Version: 0.2
     " \
   | sed 's/^\s\s//' 1>&2
   
@@ -42,7 +42,7 @@ function sys_examples() {
     garbage string is \"1238 1231 [12:44:00_28-Jan-2017 3213 2142\" with step
     eq 20 sec, for 2 days ago:
 
-    ./logen -s 20 -d \"[+%H:%M:%S_%d-%b-%Y]\" -o path/fname -g "4,0,\040,3"
+    ./logen -s 20 -d \"[+%H:%M:%S_%d-%b-%Y]\" -o path/fname -g "4,0,\\040,3"
       \"2 days ago\"
 
     LoGen may be used in soft, that requries much text data for the qa testing,
@@ -164,6 +164,10 @@ function fx_check_dates_format() {
     
   date -d "${DATE_END}" > /dev/null 2>&1
   [[ $(echo "$?") != 0 ]] && sys_error 'End date format is not recognized'
+
+  date -d "now" "${DATE_FORMAT}" > /dev/null 2>&1
+  [[ $(echo "$?") != 0 ]] && sys_error 'Output date format is not recognized'
+
 
 }
 
