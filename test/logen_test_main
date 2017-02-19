@@ -1,0 +1,149 @@
+#!/bin/bash
+# 
+# LoGen scenario for selftest (main)
+#
+# Style guide: https://google.github.io/styleguide/shell.xml
+
+
+# Compare two values and print result
+
+function sys_message (){
+  
+  local assume \
+        items
+
+  assume="${1}"
+  items="${2}"
+  
+
+  if [[ "${assume}" == "${items}" ]]; then
+    echo "Ok..."
+  else
+    echo "Failed... Assume ${assume}, get ${items}"
+  fi
+
+}
+
+# Prepare mock directories
+
+echo -e "Rmdirs with testing data"
+
+rm -rf mock_one_day \
+       mock_big_step \
+       mock_odd_step && echo "Ok..."
+
+echo -e "Mkdirs for testing data"
+
+mkdir mock_one_day \
+      mock_big_step \
+      mock_odd_step && echo "Ok.."
+
+
+# Testing case 1 - intraday, step 41, w/o tmp
+
+echo "Testing case 1"
+
+assume=745
+items="$(../logen \
+      -d "+%Y-%b-%d:%H:%M:%S" \
+      -s 41 \
+      -g "7,4,;,3" \
+      "2014-03-01 10:30:00" "2014-03-01 18:59:00" | wc -l)"
+
+sys_message "${assume}" "${items}"
+
+
+# Testing case 2 - intraday, step 41, with tmp
+
+echo "Testing case 2"
+
+assume=745
+items="$(../logen \
+      -o mock_one_day/data \
+      -d "+%Y-%b-%d:%H:%M:%S" \
+      -s 41 \
+      -g "7,4,;,3" \
+      "2014-03-01 10:30:00" "2014-03-01 18:59:00" \
+      && cat mock_one_day/data_2014-03-01 | wc -l)"
+
+sys_message "${assume}" "${items}"
+
+ # Testing case 3 - Big-step (step 156000, w/o tmp)
+
+echo "Testing case 3"
+
+assume=8
+items="$(../logen \
+      -d "+%Y-%b-%d:%H:%M:%S" \
+      -s 156000 \
+      -g "7,4,;,3" \
+      "2013-12-30 02:00:00" "2014-01-12 10:00:30" | wc -l)"
+
+sys_message "${assume}" "${items}"
+
+
+# Testing case 4 - Big-step (step 156000, with tmp)
+
+echo "Testing case 4"
+
+assume=8
+items="$(../logen \
+      -o mock_big_step/data \
+      -d "+%Y-%b-%d:%H:%M:%S" \
+      -s 156000 \
+      -g "7,4,;,3" \
+      "2013-12-30 02:00:00" "2014-01-12 10:00:30" \
+      && find mock_big_step -type f -name "data*" -exec cat {} \; | wc -l)"
+
+sys_message "${assume}" "${items}"
+
+
+ # Testing case 5 - Odd-step (step 43200, w/o tmp)
+
+echo "Testing case 5"
+
+assume=27
+items="$(../logen \
+      -d "+%Y-%b-%d %H:%M:%S" \
+      -s 43200 \
+      -g "7,4,\040,3" \
+      "2013-12-30 02:00:00" "2014-01-12 10:00:30" | wc -l)"
+
+sys_message "${assume}" "${items}"
+
+
+ # Testing case 6 - Odd-step (step 43200, with tmp)
+
+echo "Testing case 6"
+
+assume=27
+items="$(../logen \
+      -o mock_odd_step/data \
+      -d "+%Y-%b-%d %H:%M:%S" \
+      -s 43200 \
+      -g "7,4,\040,3" \
+      "2013-12-30 02:00:00" "2014-01-12 10:00:30" \
+      && find mock_odd_step -type f -name "data*" -exec cat {} \; | wc -l)"
+
+sys_message "${assume}" "${items}"
+
+# Testing case 7,8,9 - check timestamps
+
+echo "Testing case 7"
+
+assume=1389038340
+items="$(stat --format="%Y" mock_big_step/data_2014-01-06)"
+sys_message "${assume}" "${items}"
+
+
+echo "Testing case 8"
+
+assume=1389297540
+items="$(stat --format="%Y" mock_odd_step/data_2014-01-09)"
+sys_message "${assume}" "${items}"
+
+echo "Testing case 9"
+
+assume=1393703940
+items="$(stat --format="%Y" mock_one_day/data_2014-03-01)"
+sys_message "${assume}" "${items}"

@@ -1,0 +1,43 @@
+#!/bin/bash
+# 
+# LoGen scenario for selftest (perfomance)
+#
+# Style guide: https://google.github.io/styleguide/shell.xml
+
+
+# Prepare mock directories
+
+echo -e "Rmdirs with testing data"
+
+rm -rf mock_perfomance && echo "Ok..."
+
+
+echo -e "Mkdirs for testing data"
+
+mkdir mock_perfomance && echo "Ok.."
+
+
+echo -e "\nTesting case 1 (use var in 8916 items)"
+
+echo "Total items: " && time ../logen \
+      -d "+%Y-%b-%d %H:%M:%S" \
+      -s 42 \
+      -g "7,4,\040,3" \
+      "2013-12-30 02:00:00" "2014-01-03 10:00:30" | wc -l
+
+
+echo -e "\nTesting case 2 (use file in 8916 items)"
+
+time ../logen \
+      -o mock_perfomance/data \
+      -d "+%Y-%b-%d %H:%M:%S" \
+      -s 42 \
+      -g "7,4,;],3" \
+      "2013-12-30 02:00:00" "2014-01-03 10:00:30"
+
+
+echo -e "\nTesting case 3 - for loop in 8916 items"
+
+time for i in {0..8916}; do
+  echo "362718 623178 8132098 93210 21930 2318971 73289" 1>/dev/null
+done

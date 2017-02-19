@@ -1,0 +1,13 @@
+#!/bin/bash
+# 
+# LoGen clear mock test folder
+#
+# Style guide: https://google.github.io/styleguide/shell.xml
+
+
+echo -e "Rmdirs with testing data"
+
+rm -r mock_perfomance \
+      mock_one_day \
+      mock_big_step \
+      mock_odd_step && echo "Ok..."
