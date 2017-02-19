@@ -27,7 +27,7 @@ function sys_usage() {
     - set in any format recognized by \$(date) command
     - date_end is optional, by default is \"now\"
 
-  Version: 0.24
+  Version: 0.25
     " \
   | sed 's/^\s\s//' 1>&2
   
@@ -147,8 +147,6 @@ function fx_getopts() {
 function fx_check_required_options() {
 
   [[ -z "${DATE_STEP}" ]] && sys_error 'Option -s is required'
-  [[ -n "${DATE_STEP}" && "${DATE_STEP}" -gt 86400 ]] &&
-    \ sys_error 'Option -s - day step more than seconds in day'
   [[ -z "${DATE_FORMAT}" ]] && sys_error 'Option -d is required'
   [[ -z "${DATE_FORMAT}" ]] && sys_error 'Option -o is required'
   [[ -z "${GARB_FIELDS}" ]] && sys_error 'Option -g is required'
@@ -263,6 +261,7 @@ function fx_compare_fileoutput() {
 
   loop_cnt=$(((${day_sec_left}/${DATE_STEP})))
   output_file=${OUTPUT_FNAME}_$(date -d "@${iter_curr}" +%Y-%m-%d)
+  truncate --size 0 "${output_file}"
 
   # Iterate
 
@@ -294,6 +293,7 @@ function fx_compare_fileoutput() {
 
       loop_cnt=$(((${day_sec_left}/${DATE_STEP})))
       output_file=${OUTPUT_FNAME}_$(date -d "@${iter_curr}" +%Y-%m-%d)
+      truncate --size 0 "${output_file}"
 
     fi
     
