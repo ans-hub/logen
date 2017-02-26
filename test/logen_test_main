@@ -30,13 +30,15 @@ echo -e "Rmdirs with testing data"
 
 rm -rf mock_one_day \
        mock_big_step \
-       mock_odd_step && echo "Ok..."
+       mock_odd_step \
+       mock_json && echo "Ok..."
 
 echo -e "Mkdirs for testing data"
 
 mkdir mock_one_day \
       mock_big_step \
-      mock_odd_step && echo "Ok.."
+      mock_odd_step \
+      mock_json && echo "Ok.."
 
 
 # Testing case 1 - intraday, step 41, w/o tmp
@@ -68,7 +70,7 @@ items="$(../logen \
 
 sys_message "${assume}" "${items}"
 
- # Testing case 3 - Big-step (step 156000, w/o tmp)
+# Testing case 3 - Big-step (step 156000, w/o tmp)
 
 echo "Testing case 3"
 
@@ -98,7 +100,7 @@ items="$(../logen \
 sys_message "${assume}" "${items}"
 
 
- # Testing case 5 - Odd-step (step 43200, w/o tmp)
+# Testing case 5 - Odd-step (step 43200, w/o tmp)
 
 echo "Testing case 5"
 
@@ -112,7 +114,7 @@ items="$(../logen \
 sys_message "${assume}" "${items}"
 
 
- # Testing case 6 - Odd-step (step 43200, with tmp)
+# Testing case 6 - Odd-step (step 43200, with tmp)
 
 echo "Testing case 6"
 
@@ -127,22 +129,54 @@ items="$(../logen \
 
 sys_message "${assume}" "${items}"
 
-# Testing case 7,8,9 - check timestamps
+
+ # Testing case 7 - Json (step 32192, w/o tmp)
 
 echo "Testing case 7"
+
+assume=36
+items="$(../logen \
+      -d "+d %Y-%b-%d, t %H:%M:%S" \
+      -s 32192 \
+      -g "7,5,\054,4" \
+      -j \
+      "2013-12-30 02:00:00" "2014-01-12 10:00:30" | wc -l)"
+
+sys_message "${assume}" "${items}"
+
+
+ # Testing case 8 - Json (step 32192, with tmp)
+
+echo "Testing case 8"
+
+assume=36
+items="$(../logen \
+      -o mock_json/data \
+      -d "+d %Y-%b-%d, t %H:%M:%S" \
+      -s 32192 \
+      -g "7,5,\054,4" \
+      -j \
+      "2013-12-30 02:00:00" "2014-01-12 10:00:30" \
+      && find mock_json -type f -name "data*" -exec cat {} \; | wc -l)"
+
+sys_message "${assume}" "${items}"
+
+
+# Testing case 9,10,11 - check timestamps
+
+echo "Testing case 9"
 
 assume=1389038340
 items="$(stat --format="%Y" mock_big_step/data_2014-01-06)"
 sys_message "${assume}" "${items}"
 
-
-echo "Testing case 8"
+echo "Testing case 10"
 
 assume=1389297540
 items="$(stat --format="%Y" mock_odd_step/data_2014-01-09)"
 sys_message "${assume}" "${items}"
 
-echo "Testing case 9"
+echo "Testing case 11"
 
 assume=1393703940
 items="$(stat --format="%Y" mock_one_day/data_2014-03-01)"

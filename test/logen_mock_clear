@@ -10,4 +10,5 @@ echo -e "Rmdirs with testing data"
 rm -r mock_perfomance \
       mock_one_day \
       mock_big_step \
-      mock_odd_step && echo "Ok..."
+      mock_odd_step \
+      mock_json && echo "Ok..."
