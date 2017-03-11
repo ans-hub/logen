@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Logs generator (LoGen) - perfom generating fake logs in format
+# Logs generator (LoGen) - perform generate mock data in format
 # like "string string date string string" and so on
 #
 # Style guide: https://google.github.io/styleguide/shell.xml
